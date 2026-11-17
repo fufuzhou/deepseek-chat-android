@@ -1,5 +1,7 @@
-# DeepSeek Chat Android
+# DeepSeek Chat Demo Android
 
-基于 [deepseek-ai/chat-demo](https://github.com/deepseek-ai/chat-demo) 的非官方 Android APK 工程。
+Unofficial Android wrapper for https://github.com/deepseek-ai/chat-demo.
 
-工程文件与 GitHub Actions 自动构建配置正在添加。
+Build with GitHub Actions → Build Android APK → Run workflow; download artifact DeepSeek-Chat-Demo-debug-APK, unzip to app-debug.apk.
+
+API key required; no API key is bundled. Android 8+ with recent WebView. This project is not officially affiliated with DeepSeek.

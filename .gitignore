@@ -1,0 +1,9 @@
+.gradle/
+.idea/
+*.iml
+local.properties
+**/build/
+.upstream-src/
+app/src/main/assets/www/*
+!app/src/main/assets/www/.gitkeep
+.DS_Store

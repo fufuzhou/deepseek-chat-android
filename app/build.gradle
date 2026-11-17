@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.example.deepseekdemo'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.example.deepseekdemo'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+    buildTypes { release { minifyEnabled false } }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+dependencies { implementation 'androidx.webkit:webkit:1.13.0' }
+
+tasks.register('verifyWebBundle') {
+    doLast {
+        def main = file('src/main/assets/www/static/js')
+        if (!file('src/main/assets/www/index.html').isFile() ||
+            !main.isDirectory() || (main.listFiles()?.length ?: 0) == 0) {
+            throw new GradleException('Missing bundled web frontend: run bash scripts/build-web.sh')
+        }
+    }
+}
+preBuild.dependsOn(tasks.named('verifyWebBundle'))
