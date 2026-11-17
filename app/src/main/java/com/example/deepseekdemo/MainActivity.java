@@ -34,6 +34,13 @@ import androidx.webkit.WebViewFeature;
 import org.json.JSONObject;
 import java.io.OutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import javax.net.ssl.HttpsURLConnection;
 import java.util.Collections;
 
 /** Unofficial, offline-web-bundle Android container. API requests use HTTPS. */
@@ -50,6 +57,7 @@ public final class MainActivity extends Activity {
     private String pendingId, exportId;
     private Uri exportUri;
     private OutputStream exportStream;
+    private final ExecutorService balanceTasks = Executors.newSingleThreadExecutor();
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -155,12 +163,88 @@ public final class MainActivity extends Activity {
                         handleExport(message.getData(), proxy);
                 });
         }
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, "AndroidBalance",
+                Collections.singleton(ORIGIN),
+                (view, message, source, isMainFrame, proxy) -> {
+                    if (isMainFrame && ORIGIN.equals(source.toString())
+                        && message.getType() == WebMessageCompat.TYPE_STRING) {
+                        queryBalance(message.getData(), proxy);
+                    }
+                });
+        }
         web.setDownloadListener((url, ua, disposition, type, size) -> {
             if (url.startsWith("https://")) openExternal(url);
             else toast("无法保存此下载链接");
         });
         web.loadUrl(HOME);
     }
+    /**
+     * The bridge accepts only credentials for the fixed DeepSeek balance endpoint.
+     * Never allow a supplied URL or forward this credential elsewhere.
+     */
+    private void queryBalance(String message, JavaScriptReplyProxy reply) {
+        final int id;
+        final String apiKey;
+        try {
+            JSONObject request = new JSONObject(message);
+            id = request.getInt("id");
+            apiKey = request.getString("key");
+        } catch (Exception e) { return; }
+        if (id < 0 || apiKey.length() < 8 || apiKey.length() > 1024) {
+            sendBalanceReply(reply, id, null, "API Key 格式无效");
+            return;
+        }
+        balanceTasks.execute(() -> {
+            HttpsURLConnection connection = null;
+            try {
+                URL url = new URL("https://api.deepseek.com/user/balance");
+                connection = (HttpsURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setInstanceFollowRedirects(false);
+                connection.setConnectTimeout(12000);
+                connection.setReadTimeout(12000);
+                connection.setUseCaches(false);
+                connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+                connection.setRequestProperty("Accept", "application/json");
+                int code = connection.getResponseCode();
+                if (code != 200) throw new IOException("HTTP " + code);
+                try (InputStream input = connection.getInputStream();
+                     ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[4096];
+                    int size;
+                    int total = 0;
+                    while ((size = input.read(buffer)) != -1) {
+                        total += size;
+                        if (total > 65536) throw new IOException("Balance response too large");
+                        output.write(buffer, 0, size);
+                    }
+                    String json = new String(output.toByteArray(), StandardCharsets.UTF_8);
+                    sendBalanceReply(reply, id, new JSONObject(json), null);
+                }
+            } catch (Exception e) {
+                String detail = e instanceof IOException && e.getMessage() != null
+                    && e.getMessage().matches("HTTP [0-9]{3}")
+                    ? e.getMessage() : "网络请求失败";
+                sendBalanceReply(reply, id, null, detail);
+            } finally {
+                if (connection != null) connection.disconnect();
+            }
+        });
+    }
+    private void sendBalanceReply(JavaScriptReplyProxy reply, int id, JSONObject data, String error) {
+        try {
+            JSONObject response = new JSONObject();
+            response.put("id", id);
+            if (data != null) response.put("data", data);
+            if (error != null) response.put("error", error);
+            runOnUiThread(() -> {
+                try { reply.postMessage(response.toString()); }
+                catch (Exception ignored) { }
+            });
+        } catch (Exception ignored) { }
+    }
+
     private void openExternal(String url) {
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
         catch (Exception e) { toast("无法打开外部链接"); }
@@ -272,6 +356,7 @@ public final class MainActivity extends Activity {
         if (fileCallback != null) fileCallback.onReceiveValue(null);
         if (pendingReply != null) reply(pendingReply, pendingSeq, false, "应用已关闭");
         closeExport(true);
+        balanceTasks.shutdownNow();
         if (web != null) {
             ViewGroup parent = (ViewGroup) web.getParent();
             if (parent != null) parent.removeView(web);

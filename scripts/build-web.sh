@@ -13,6 +13,7 @@ python3 "$ROOT/scripts/patch-upstream.py" "$UPSTREAM"
 (
   cd "$UPSTREAM"
   corepack pnpm install --frozen-lockfile
+  corepack pnpm type
   corepack pnpm build
 )
 DEST="$ROOT/app/src/main/assets/www"

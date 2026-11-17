@@ -19,6 +19,8 @@ jobs:
           npm install -g corepack@0.34.5
           corepack enable
           corepack prepare pnpm@9.15.9 --activate
+      - name: Test pricing calculation
+        run: node --experimental-strip-types --test tests/pricing.test.mjs
       - name: Build and bundle official DeepSeek web client
         run: bash scripts/build-web.sh
       - uses: actions/setup-java@v4
