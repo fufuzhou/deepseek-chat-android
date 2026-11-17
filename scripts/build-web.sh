@@ -9,6 +9,9 @@ fi
 git -C "$UPSTREAM" fetch --depth 1 origin "$REF"
 git -C "$UPSTREAM" checkout --force --detach "$REF"
 cp "$ROOT/patches/nativeExport.ts" "$UPSTREAM/src/services/chat/nativeExport.ts"
+mkdir -p "$UPSTREAM/src/services/billing" "$UPSTREAM/src/components/billing"
+cp "$ROOT/patches/billing/pricing.ts" "$ROOT/patches/billing/balance.ts" "$ROOT/patches/billing/meter.ts" "$UPSTREAM/src/services/billing/"
+cp "$ROOT/patches/billing/BillingBar.tsx" "$ROOT/patches/billing/BillingBar.module.css" "$UPSTREAM/src/components/billing/"
 python3 "$ROOT/scripts/patch-upstream.py" "$UPSTREAM"
 (
   cd "$UPSTREAM"
