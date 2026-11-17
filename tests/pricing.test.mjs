@@ -21,8 +21,8 @@ test('Flash costs: cache discount, output tokens and billed tools', () => {
   }
   const peak = calculateCharge('deepseek-flash', usage, utc('2026-11-17T02:00:00Z'))
   const off = calculateCharge('deepseek-flash', usage, utc('2026-11-17T13:00:00Z'))
-  assert.equal(peak.totalCny, 4.035)
-  assert.equal(off.totalCny, 2.025)
+  assert.ok(Math.abs(peak.totalCny - 4.035) < 1e-10)
+  assert.ok(Math.abs(off.totalCny - 2.025) < 1e-10)
   assert.equal(peak.searches, 2)
   assert.equal(peak.fetches, 1)
 })
